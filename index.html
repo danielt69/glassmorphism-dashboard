@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Nimbus — a polished, responsive glassmorphism analytics dashboard UI. Pure HTML/CSS with a touch of vanilla JS, persistent dark/light theme, no backend." />
+  <meta name="color-scheme" content="dark light" />
+  <title>Nimbus · Glassmorphism Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" />
+  <style>
+    /* ============ Design tokens ============ */
+    :root {
+      --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --radius: 18px;
+      --radius-sm: 12px;
+      --gap: 22px;
+      --sidebar-w: 256px;
+      --topbar-h: 72px;
+
+      --accent: #6d8bff;
+      --accent-2: #b06dff;
+      --accent-grad: linear-gradient(135deg, #6d8bff 0%, #b06dff 100%);
+      --good: #34d399;
+      --bad: #fb7185;
+
+      --ease: cubic-bezier(.2,.7,.2,1);
+      --speed: .28s;
+    }
+
+    /* Dark (default) */
+    [data-theme="dark"] {
+      --bg-0: #070912;
+      --bg-1: #0c1020;
+      --text: #eef1fb;
+      --text-dim: #9aa3c4;
+      --glass: rgba(22, 27, 48, 0.55);
+      --glass-2: rgba(30, 36, 62, 0.5);
+      --stroke: rgba(255, 255, 255, 0.09);
+      --stroke-strong: rgba(255, 255, 255, 0.16);
+      --shadow: 0 18px 50px -20px rgba(0,0,0,0.7);
+      --blob-a: #3b5bff;
+      --blob-b: #9b3bff;
+      --blob-c: #00d4ff;
+      --hover: rgba(255,255,255,0.06);
+    }
+
+    /* Light */
+    [data-theme="light"] {
+      --bg-0: #e7ebfa;
+      --bg-1: #f3f5ff;
+      --text: #141a2e;
+      --text-dim: #5a6486;
+      --glass: rgba(255, 255, 255, 0.55);
+      --glass-2: rgba(255, 255, 255, 0.65);
+      --stroke: rgba(20, 26, 46, 0.10);
+      --stroke-strong: rgba(20, 26, 46, 0.16);
+      --shadow: 0 18px 50px -22px rgba(60,70,130,0.45);
+      --blob-a: #7d97ff;
+      --blob-b: #cf9bff;
+      --blob-c: #79e3ff;
+      --hover: rgba(20,26,46,0.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-0);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      transition: background var(--speed) var(--ease), color var(--speed) var(--ease);
+    }
+
+    /* ============ Ambient background blobs ============ */
+    .bg {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      background:
+        radial-gradient(120% 120% at 100% 0%, var(--bg-1) 0%, var(--bg-0) 55%);
+    }
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: .55;
+      animation: float 22s ease-in-out infinite;
+    }
+    .blob.b1 { width: 480px; height: 480px; background: var(--blob-a); top: -120px; left: -80px; }
+    .blob.b2 { width: 520px; height: 520px; background: var(--blob-b); bottom: -160px; right: -60px; animation-delay: -7s; }
+    .blob.b3 { width: 360px; height: 360px; background: var(--blob-c); top: 40%; left: 55%; opacity: .35; animation-delay: -14s; }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      33%      { transform: translate(40px,-30px) scale(1.08); }
+      66%      { transform: translate(-30px,20px) scale(.95); }
+    }
+
+    /* ============ Glass primitive ============ */
+    .glass {
+      background: var(--glass);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      box-shadow: var(--shadow);
+    }
+
+    /* ============ App shell ============ */
+    .app {
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      grid-template-rows: 100vh;
+      gap: var(--gap);
+      padding: var(--gap);
+    }
+
+    /* ---- Sidebar ---- */
+    .sidebar {
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 22px 16px;
+      position: sticky;
+      top: var(--gap);
+      height: calc(100vh - 2 * var(--gap));
+      transition: transform var(--speed) var(--ease);
+      z-index: 60;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 10px 22px;
+    }
+    .brand .logo {
+      width: 38px; height: 38px;
+      border-radius: 11px;
+      background: var(--accent-grad);
+      display: grid; place-items: center;
+      color: #fff;
+      box-shadow: 0 8px 24px -8px var(--accent);
+      flex: none;
+    }
+    .brand .name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+    .brand .name span { color: var(--text-dim); font-weight: 600; }
+
+    .nav { display: flex; flex-direction: column; gap: 4px; }
+    .nav-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-dim);
+      padding: 16px 12px 8px;
+    }
+    .nav a {
+      display: flex; align-items: center; gap: 13px;
+      padding: 11px 12px;
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 14.5px; font-weight: 600;
+      transition: background var(--speed) var(--ease), color var(--speed) var(--ease);
+      position: relative;
+    }
+    .nav a svg { width: 19px; height: 19px; flex: none; }
+    .nav a:hover { background: var(--hover); color: var(--text); }
+    .nav a.active {
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(109,139,255,.22), rgba(176,109,255,.18));
+      border: 1px solid var(--stroke-strong);
+    }
+    .nav a.active::before {
+      content: ""; position: absolute; left: -16px; top: 50%; transform: translateY(-50%);
+      width: 4px; height: 22px; border-radius: 0 4px 4px 0; background: var(--accent-grad);
+    }
+
+    .side-foot { margin-top: auto; }
+    .upsell {
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-grad);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .upsell h4 { font-size: 14px; margin-bottom: 4px; }
+    .upsell p { font-size: 12px; opacity: .85; margin-bottom: 12px; line-height: 1.4; }
+    .upsell button {
+      width: 100%; border: 0; padding: 8px; border-radius: 9px;
+      background: rgba(255,255,255,.95); color: #2a2150;
+      font-weight: 700; font-size: 13px; cursor: pointer;
+      transition: transform var(--speed) var(--ease);
+    }
+    .upsell button:hover { transform: translateY(-1px); }
+
+    /* ---- Main ---- */
+    .main {
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+      min-width: 0;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    /* topbar */
+    .topbar {
+      display: flex; align-items: center; gap: 16px;
+      padding: 14px 18px;
+      height: var(--topbar-h);
+      position: sticky; top: 0; z-index: 40;
+    }
+    .hamburger {
+      display: none;
+      width: 40px; height: 40px; border-radius: 11px;
+      border: 1px solid var(--stroke); background: var(--glass-2);
+      color: var(--text); cursor: pointer; place-items: center;
+    }
+    .page-title { display: flex; flex-direction: column; }
+    .page-title h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+    .page-title p { font-size: 12.5px; color: var(--text-dim); }
+
+    .search {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 9px;
+      background: var(--glass-2);
+      border: 1px solid var(--stroke);
+      border-radius: 11px;
+      padding: 9px 13px;
+      width: 280px; max-width: 36vw;
+      color: var(--text-dim);
+    }
+    .search svg { width: 16px; height: 16px; flex: none; }
+    .search input {
+      border: 0; background: transparent; outline: none;
+      color: var(--text); font-family: var(--font); font-size: 14px; width: 100%;
+    }
+    .search input::placeholder { color: var(--text-dim); }
+    .search kbd {
+      font-size: 10.5px; font-weight: 700; color: var(--text-dim);
+      border: 1px solid var(--stroke-strong); border-radius: 6px; padding: 2px 6px;
+    }
+
+    .icon-btn {
+      width: 40px; height: 40px; border-radius: 11px;
+      border: 1px solid var(--stroke); background: var(--glass-2);
+      color: var(--text); cursor: pointer;
+      display: grid; place-items: center; position: relative;
+      transition: background var(--speed) var(--ease), transform var(--speed) var(--ease);
+      flex: none;
+    }
+    .icon-btn:hover { background: var(--hover); transform: translateY(-1px); }
+    .icon-btn svg { width: 18px; height: 18px; }
+    .icon-btn .dot {
+      position: absolute; top: 9px; right: 10px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--bad); border: 2px solid var(--bg-0);
+    }
+    .theme-icon .sun { display: none; }
+    [data-theme="light"] .theme-icon .sun { display: block; }
+    [data-theme="light"] .theme-icon .moon { display: none; }
+
+    .avatar {
+      width: 40px; height: 40px; border-radius: 11px; flex: none;
+      background: linear-gradient(135deg,#ff8a65,#d8617f);
+      display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 14px;
+      border: 1px solid var(--stroke-strong); cursor: pointer;
+    }
+
+    /* KPI grid */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+    }
+    .kpi { padding: 20px; display: flex; flex-direction: column; gap: 14px; transition: transform var(--speed) var(--ease), border-color var(--speed) var(--ease); }
+    .kpi:hover { transform: translateY(-3px); border-color: var(--stroke-strong); }
+    .kpi .row { display: flex; align-items: center; justify-content: space-between; }
+    .kpi .ico {
+      width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+      color: #fff;
+    }
+    .ico.i1 { background: linear-gradient(135deg,#6d8bff,#4f6dff); }
+    .ico.i2 { background: linear-gradient(135deg,#34d399,#10b981); }
+    .ico.i3 { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+    .ico.i4 { background: linear-gradient(135deg,#b06dff,#8b5cf6); }
+    .kpi .ico svg { width: 20px; height: 20px; }
+    .delta {
+      font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 8px; border-radius: 20px;
+    }
+    .delta svg { width: 12px; height: 12px; }
+    .delta.up { color: var(--good); background: rgba(52,211,153,.13); }
+    .delta.down { color: var(--bad); background: rgba(251,113,133,.13); }
+    .delta.down svg { transform: rotate(180deg); }
+    .kpi .val { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
+    .kpi .lbl { font-size: 13px; color: var(--text-dim); font-weight: 600; }
+
+    /* Charts row */
+    .charts {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: var(--gap);
+    }
+    .panel { padding: 22px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .panel-head h3 { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+    .panel-head p { font-size: 12.5px; color: var(--text-dim); }
+    .seg {
+      display: flex; gap: 2px; padding: 3px;
+      background: var(--glass-2); border: 1px solid var(--stroke); border-radius: 10px;
+    }
+    .seg button {
+      border: 0; background: transparent; color: var(--text-dim);
+      font-family: var(--font); font-weight: 700; font-size: 12px;
+      padding: 5px 11px; border-radius: 7px; cursor: pointer;
+      transition: background var(--speed) var(--ease), color var(--speed) var(--ease);
+    }
+    .seg button.on { background: var(--accent-grad); color: #fff; }
+
+    /* SVG bar chart */
+    .chart-svg { width: 100%; height: 200px; display: block; }
+    .bar { transition: opacity var(--speed) var(--ease); cursor: pointer; }
+    .bar:hover { opacity: .8; }
+    .legend { display: flex; gap: 18px; flex-wrap: wrap; }
+    .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-dim); font-weight: 600; }
+    .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+    /* Donut / radial */
+    .donut-wrap { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+    .donut { position: relative; width: 150px; height: 150px; flex: none; }
+    .donut .center {
+      position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+    }
+    .donut .center b { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; display: block; }
+    .donut .center small { font-size: 11.5px; color: var(--text-dim); font-weight: 600; }
+    .donut circle { transition: stroke-dashoffset 1s var(--ease); }
+    .stat-list { display: flex; flex-direction: column; gap: 13px; flex: 1; min-width: 120px; }
+    .stat-list .item { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
+    .stat-list .item i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+    .stat-list .item b { margin-left: auto; font-weight: 800; }
+    .stat-list .item span { color: var(--text-dim); }
+
+    /* Activity table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 540px; }
+    thead th {
+      text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-dim);
+      padding: 0 14px 12px; border-bottom: 1px solid var(--stroke);
+    }
+    tbody td { padding: 14px; border-bottom: 1px solid var(--stroke); font-size: 13.5px; }
+    tbody tr { transition: background var(--speed) var(--ease); }
+    tbody tr:hover { background: var(--hover); }
+    tbody tr:last-child td { border-bottom: 0; }
+    .user-cell { display: flex; align-items: center; gap: 11px; font-weight: 700; }
+    .mini-av {
+      width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+      color: #fff; font-weight: 800; font-size: 12px; flex: none;
+    }
+    .badge {
+      font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .badge.paid { color: var(--good); background: rgba(52,211,153,.12); }
+    .badge.pending { color: #fbbf24; background: rgba(251,191,36,.12); }
+    .badge.failed { color: var(--bad); background: rgba(251,113,133,.12); }
+    td.amount { font-weight: 800; font-variant-numeric: tabular-nums; }
+    td.dim { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+    footer {
+      text-align: center; color: var(--text-dim); font-size: 12.5px;
+      padding: 6px 0 4px;
+    }
+    footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+
+    /* Mobile drawer scrim */
+    .scrim {
+      position: fixed; inset: 0; z-index: 55;
+      background: rgba(3,5,12,.55); backdrop-filter: blur(2px);
+      opacity: 0; pointer-events: none; transition: opacity var(--speed) var(--ease);
+    }
+    body.nav-open .scrim { opacity: 1; pointer-events: auto; }
+
+    /* ============ Responsive ============ */
+    @media (max-width: 1100px) {
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .charts { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 860px) {
+      :root { --gap: 16px; }
+      .app { grid-template-columns: 1fr; grid-template-rows: auto; padding: 14px; }
+      .hamburger { display: grid; }
+      .sidebar {
+        position: fixed; top: 0; left: 0; bottom: 0; height: 100vh;
+        width: 280px; border-radius: 0 var(--radius) var(--radius) 0;
+        transform: translateX(-105%);
+        background: var(--glass);
+      }
+      body.nav-open .sidebar { transform: translateX(0); }
+      .main { overflow: visible; }
+      .topbar { top: 14px; }
+    }
+    @media (max-width: 560px) {
+      .kpis { grid-template-columns: 1fr; }
+      .search { display: none; }
+      .page-title p { display: none; }
+      .donut-wrap { justify-content: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+  </div>
+
+  <div class="scrim" id="scrim" aria-hidden="true"></div>
+
+  <div class="app">
+    <!-- ============ Sidebar ============ -->
+    <aside class="sidebar glass" id="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M3 21h18"/></svg>
+        </div>
+        <div class="name">Nimbus<span>.io</span></div>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-label">Menu</div>
+        <a href="#" class="active" aria-current="page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          Dashboard
+        </a>
+        <a href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+          Analytics
+        </a>
+        <a href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          Wallet
+        </a>
+        <a href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 8.5a3 3 0 0 1 0 5"/><path d="M18.5 20a5 5 0 0 0-3-4.6"/></svg>
+          Customers
+        </a>
+
+        <div class="nav-label">Workspace</div>
+        <a href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18"/><path d="M8 4v5"/></svg>
+          Projects
+        </a>
+        <a href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V6a2 2 0 0 1 2-2h7l3 3h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+          Reports
+        </a>
+        <a href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2.3-1.3L13.7 2h-3.4l-.3 2.4a7 7 0 0 0-2.3 1.3l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.3l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2.3 1.3l.3 2.4h3.4l.3-2.4a7 7 0 0 0 2.3-1.3l2.3.9 2-3.4-2-1.5A7 7 0 0 0 19 12z"/></svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="side-foot">
+        <div class="upsell">
+          <h4>Upgrade to Pro</h4>
+          <p>Unlock advanced analytics, unlimited seats &amp; priority support.</p>
+          <button type="button">Upgrade now</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ Main ============ -->
+    <main class="main">
+      <header class="topbar glass">
+        <button class="hamburger" id="hamburger" aria-label="Open navigation" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="page-title">
+          <h1>Overview</h1>
+          <p>Welcome back, Daniel — here's what's happening today.</p>
+        </div>
+
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" placeholder="Search anything…" aria-label="Search" />
+          <kbd>⌘K</kbd>
+        </label>
+
+        <button class="icon-btn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="dot"></span>
+        </button>
+
+        <button class="icon-btn" id="themeToggle" aria-label="Toggle dark and light theme">
+          <span class="theme-icon">
+            <svg class="moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+            <svg class="sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+          </span>
+        </button>
+
+        <div class="avatar" title="Daniel Tsionit">DT</div>
+      </header>
+
+      <!-- KPI cards -->
+      <section class="kpis" aria-label="Key performance indicators">
+        <article class="kpi glass">
+          <div class="row">
+            <div class="ico i1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+            <span class="delta up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>12.5%</span>
+          </div>
+          <div><div class="val">$48,260</div><div class="lbl">Total Revenue</div></div>
+        </article>
+
+        <article class="kpi glass">
+          <div class="row">
+            <div class="ico i2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg></div>
+            <span class="delta up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>8.2%</span>
+          </div>
+          <div><div class="val">9,412</div><div class="lbl">Active Users</div></div>
+        </article>
+
+        <article class="kpi glass">
+          <div class="row">
+            <div class="ico i3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1.6"/><circle cx="18" cy="21" r="1.6"/><path d="M2 3h2.2l2.3 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/></svg></div>
+            <span class="delta up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>3.1%</span>
+          </div>
+          <div><div class="val">2,338</div><div class="lbl">Orders</div></div>
+        </article>
+
+        <article class="kpi glass">
+          <div class="row">
+            <div class="ico i4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+            <span class="delta down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>1.8%</span>
+          </div>
+          <div><div class="val">3.24%</div><div class="lbl">Conversion Rate</div></div>
+        </article>
+      </section>
+
+      <!-- Charts -->
+      <section class="charts">
+        <article class="panel glass">
+          <div class="panel-head">
+            <div>
+              <h3>Revenue Overview</h3>
+              <p>Earnings vs. expenses across the last 8 months</p>
+            </div>
+            <div class="seg" role="group" aria-label="Time range">
+              <button type="button">1M</button>
+              <button type="button" class="on">8M</button>
+              <button type="button">1Y</button>
+            </div>
+          </div>
+
+          <svg class="chart-svg" viewBox="0 0 640 200" preserveAspectRatio="none" role="img" aria-label="Bar chart of revenue versus expenses over eight months">
+            <defs>
+              <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#6d8bff"/><stop offset="100%" stop-color="#4f6dff"/>
+              </linearGradient>
+              <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#b06dff"/><stop offset="100%" stop-color="#8b5cf6"/>
+              </linearGradient>
+            </defs>
+            <!-- gridlines -->
+            <g stroke="var(--stroke)" stroke-width="1">
+              <line x1="0" y1="40" x2="640" y2="40"/>
+              <line x1="0" y1="90" x2="640" y2="90"/>
+              <line x1="0" y1="140" x2="640" y2="140"/>
+              <line x1="0" y1="190" x2="640" y2="190"/>
+            </g>
+            <!-- bars: 8 groups -->
+            <g id="bars"></g>
+          </svg>
+
+          <div class="legend">
+            <span><i style="background:#6d8bff"></i> Revenue</span>
+            <span><i style="background:#b06dff"></i> Expenses</span>
+          </div>
+        </article>
+
+        <article class="panel glass">
+          <div class="panel-head">
+            <div>
+              <h3>Traffic Sources</h3>
+              <p>Where your visitors come from</p>
+            </div>
+          </div>
+          <div class="donut-wrap">
+            <div class="donut">
+              <svg viewBox="0 0 120 120" width="150" height="150">
+                <circle cx="60" cy="60" r="48" fill="none" stroke="var(--stroke)" stroke-width="14"/>
+                <!-- segments via stroke-dasharray; circumference ≈ 301.6 -->
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#6d8bff" stroke-width="14" stroke-linecap="round"
+                        stroke-dasharray="135.7 165.9" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#b06dff" stroke-width="14" stroke-linecap="round"
+                        stroke-dasharray="90.5 211.1" stroke-dashoffset="-135.7" transform="rotate(-90 60 60)"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#34d399" stroke-width="14" stroke-linecap="round"
+                        stroke-dasharray="48.3 253.3" stroke-dashoffset="-226.2" transform="rotate(-90 60 60)"/>
+              </svg>
+              <div class="center"><b>72%</b><small>Returning</small></div>
+            </div>
+            <div class="stat-list">
+              <div class="item"><i style="background:#6d8bff"></i><span>Direct</span><b>45%</b></div>
+              <div class="item"><i style="background:#b06dff"></i><span>Social</span><b>30%</b></div>
+              <div class="item"><i style="background:#34d399"></i><span>Referral</span><b>16%</b></div>
+              <div class="item"><i style="background:#3a3f5e"></i><span>Other</span><b>9%</b></div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Activity table -->
+      <section class="panel glass">
+        <div class="panel-head">
+          <div>
+            <h3>Recent Transactions</h3>
+            <p>Latest customer payment activity</p>
+          </div>
+          <div class="seg"><button type="button" class="on">View all</button></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Customer</th><th>Status</th><th>Date</th><th>Amount</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="user-cell"><span class="mini-av" style="background:linear-gradient(135deg,#6d8bff,#4f6dff)">AM</span>Ava Morgan</div></td>
+                <td><span class="badge paid">Paid</span></td>
+                <td class="dim">Jun 04, 2026</td>
+                <td class="amount">$1,280.00</td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><span class="mini-av" style="background:linear-gradient(135deg,#34d399,#10b981)">LC</span>Liam Chen</div></td>
+                <td><span class="badge pending">Pending</span></td>
+                <td class="dim">Jun 03, 2026</td>
+                <td class="amount">$540.50</td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><span class="mini-av" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">SR</span>Sofia Rossi</div></td>
+                <td><span class="badge paid">Paid</span></td>
+                <td class="dim">Jun 03, 2026</td>
+                <td class="amount">$3,120.00</td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><span class="mini-av" style="background:linear-gradient(135deg,#b06dff,#8b5cf6)">NK</span>Noah Kim</div></td>
+                <td><span class="badge failed">Failed</span></td>
+                <td class="dim">Jun 02, 2026</td>
+                <td class="amount">$89.00</td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><span class="mini-av" style="background:linear-gradient(135deg,#ff8a65,#d8617f)">EP</span>Emma Patel</div></td>
+                <td><span class="badge paid">Paid</span></td>
+                <td class="dim">Jun 01, 2026</td>
+                <td class="amount">$760.25</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer>
+        Static UI mock · no backend · built with pure HTML/CSS + vanilla JS by
+        <a href="https://github.com/danielt69" target="_blank" rel="noopener">Daniel Tsionit</a>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* ---------- Theme: persisted, respects system default ---------- */
+      var root = document.documentElement;
+      var KEY = "nimbus-theme";
+      var saved = null;
+      try { saved = localStorage.getItem(KEY); } catch (e) {}
+      if (saved === "light" || saved === "dark") {
+        root.setAttribute("data-theme", saved);
+      } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
+        root.setAttribute("data-theme", "light");
+      }
+
+      var toggle = document.getElementById("themeToggle");
+      toggle.addEventListener("click", function () {
+        var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem(KEY, next); } catch (e) {}
+      });
+
+      /* ---------- Mobile drawer nav ---------- */
+      var burger = document.getElementById("hamburger");
+      var scrim = document.getElementById("scrim");
+      function setNav(open) {
+        document.body.classList.toggle("nav-open", open);
+        burger.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+      burger.addEventListener("click", function () {
+        setNav(!document.body.classList.contains("nav-open"));
+      });
+      scrim.addEventListener("click", function () { setNav(false); });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") setNav(false);
+      });
+      // close drawer when a nav link is tapped (mobile)
+      document.querySelectorAll(".nav a").forEach(function (a) {
+        a.addEventListener("click", function () {
+          if (window.innerWidth <= 860) setNav(false);
+        });
+      });
+
+      /* ---------- Render SVG bar chart (no library) ---------- */
+      var revenue  = [62, 48, 74, 58, 86, 70, 95, 82];
+      var expenses = [40, 35, 48, 42, 55, 50, 60, 52];
+      var months   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug"];
+      var g = document.getElementById("bars");
+      var groupW = 640 / revenue.length;     // 80
+      var barW = 14;
+      var maxV = 100, baseY = 190, topY = 10, h = baseY - topY; // 180
+      var SVG = "http://www.w3.org/2000/svg";
+
+      revenue.forEach(function (rv, i) {
+        var cx = i * groupW + groupW / 2;
+        var data = [
+          { v: rv, fill: "url(#gRev)", dx: -(barW + 2) },
+          { v: expenses[i], fill: "url(#gExp)", dx: 2 }
+        ];
+        data.forEach(function (d) {
+          var bh = (d.v / maxV) * h;
+          var r = document.createElementNS(SVG, "rect");
+          r.setAttribute("class", "bar");
+          r.setAttribute("x", cx + d.dx);
+          r.setAttribute("y", baseY - bh);
+          r.setAttribute("width", barW);
+          r.setAttribute("height", bh);
+          r.setAttribute("rx", 5);
+          r.setAttribute("fill", d.fill);
+          var t = document.createElementNS(SVG, "title");
+          t.textContent = months[i] + ": " + d.v;
+          r.appendChild(t);
+          g.appendChild(r);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
